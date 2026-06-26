@@ -8,9 +8,12 @@ from PySide6.QtCore import QTimer, Qt, QPoint, QRectF
 from PySide6.QtGui import QAction, QFont, QIcon, QMouseEvent, QPainter, QColor, QPixmap
 from PySide6.QtWidgets import (
     QApplication,
+    QHBoxLayout,
     QLabel,
     QMenu,
     QProgressBar,
+    QPushButton,
+    QStackedWidget,
     QSystemTrayIcon,
     QVBoxLayout,
     QWidget,
@@ -43,6 +46,9 @@ class SystemMonitorWidget(QWidget):
         self._center_on_screen()
 
     def _build_ui(self):
+        self.compact_mode = False
+        self._last_cpu = 0.0
+
         self.container = QWidget(self)
         self.container.setObjectName("container")
         self.container.setStyleSheet(
@@ -76,6 +82,20 @@ class SystemMonitorWidget(QWidget):
                 border-radius: 4px;
                 background-color: #4fc3f7;
             }
+            QPushButton {
+                background-color: rgba(255, 255, 255, 30);
+                color: #ffffff;
+                border: none;
+                border-radius: 10px;
+                font-size: 12px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: rgba(255, 255, 255, 60);
+            }
+            QPushButton:checked {
+                background-color: rgba(79, 195, 247, 180);
+            }
             """
         )
 
@@ -83,48 +103,88 @@ class SystemMonitorWidget(QWidget):
         layout.setContentsMargins(16, 16, 16, 16)
         layout.setSpacing(10)
 
+        # Title bar with minimize and compact toggle buttons
+        title_layout = QHBoxLayout()
+        title_layout.setSpacing(6)
+
         title = QLabel("系统监控")
         title.setObjectName("title")
-        title.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        layout.addWidget(title)
+        title_layout.addWidget(title)
+        title_layout.addStretch()
+
+        self.compact_btn = QPushButton("◱")
+        self.compact_btn.setToolTip("切换精简模式")
+        self.compact_btn.setCheckable(True)
+        self.compact_btn.setFixedSize(22, 22)
+        self.compact_btn.clicked.connect(self._toggle_compact_mode)
+
+        minimize_btn = QPushButton("−")
+        minimize_btn.setToolTip("最小化")
+        minimize_btn.setFixedSize(22, 22)
+        minimize_btn.clicked.connect(self.showMinimized)
+
+        title_layout.addWidget(self.compact_btn)
+        title_layout.addWidget(minimize_btn)
+        layout.addLayout(title_layout)
+
+        # Stacked body: normal details vs compact ring view
+        self.body_stack = QStackedWidget()
+        self.body_stack.setContentsMargins(0, 0, 0, 0)
+
+        normal_page = QWidget()
+        normal_layout = QVBoxLayout(normal_page)
+        normal_layout.setContentsMargins(0, 0, 0, 0)
+        normal_layout.setSpacing(10)
 
         self.cpu_label = QLabel("CPU: --%")
         self.cpu_label.setObjectName("value")
-        layout.addWidget(self.cpu_label)
+        normal_layout.addWidget(self.cpu_label)
 
         self.cpu_bar = QProgressBar()
         self.cpu_bar.setRange(0, 100)
         self.cpu_bar.setTextVisible(False)
-        layout.addWidget(self.cpu_bar)
+        normal_layout.addWidget(self.cpu_bar)
 
         self.mem_label = QLabel("内存: --%")
         self.mem_label.setObjectName("value")
-        layout.addWidget(self.mem_label)
+        normal_layout.addWidget(self.mem_label)
 
         self.mem_bar = QProgressBar()
         self.mem_bar.setRange(0, 100)
         self.mem_bar.setTextVisible(False)
-        layout.addWidget(self.mem_bar)
+        normal_layout.addWidget(self.mem_bar)
 
         self.disk_label = QLabel("磁盘: --%")
         self.disk_label.setObjectName("value")
-        layout.addWidget(self.disk_label)
+        normal_layout.addWidget(self.disk_label)
 
         self.disk_bar = QProgressBar()
         self.disk_bar.setRange(0, 100)
         self.disk_bar.setTextVisible(False)
-        layout.addWidget(self.disk_bar)
+        normal_layout.addWidget(self.disk_bar)
 
         self.net_label = QLabel("网络: ↓ --  ↑ --")
         self.net_label.setObjectName("value")
-        layout.addWidget(self.net_label)
+        normal_layout.addWidget(self.net_label)
 
-        main_layout = QVBoxLayout(self)
-        main_layout.setContentsMargins(8, 8, 8, 8)
-        main_layout.addWidget(self.container)
-        self.setLayout(main_layout)
+        self.body_stack.addWidget(normal_page)
 
-        self.setFixedSize(220, 240)
+        compact_page = QWidget()
+        compact_layout = QVBoxLayout(compact_page)
+        compact_layout.setContentsMargins(0, 0, 0, 0)
+        self.compact_label = QLabel()
+        self.compact_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        compact_layout.addWidget(self.compact_label)
+        self.body_stack.addWidget(compact_page)
+
+        layout.addWidget(self.body_stack)
+
+        self.main_layout = QVBoxLayout(self)
+        self.main_layout.setContentsMargins(8, 8, 8, 8)
+        self.main_layout.addWidget(self.container)
+        self.setLayout(self.main_layout)
+
+        self.setFixedSize(220, 250)
 
     def _setup_timer(self):
         self.timer = QTimer(self)
@@ -154,8 +214,8 @@ class SystemMonitorWidget(QWidget):
         self.tray_icon.setToolTip("系统监控小部件")
         self.tray_icon.show()
 
-    def _create_tray_icon(self, value: float) -> QIcon:
-        size = 64
+    def _create_tray_icon(self, value: float, size: int = 128) -> QIcon:
+
         pixmap = QPixmap(size, size)
         pixmap.fill(QColor(0, 0, 0, 0))
 
@@ -168,7 +228,6 @@ class SystemMonitorWidget(QWidget):
         painter.drawEllipse(4, 4, size - 8, size - 8)
 
         # Progress arc
-        pen_width = 8
         rect = QRectF(8, 8, size - 16, size - 16)
         start_angle = 90 * 16
         span_angle = -int(value * 360 * 16 / 100)
@@ -180,18 +239,47 @@ class SystemMonitorWidget(QWidget):
 
         # Inner circle to make it a ring
         painter.setBrush(QColor(30, 30, 30, 220))
-        inner_rect = QRectF(16, 16, size - 32, size - 32)
+        inner_rect = QRectF(20, 20, size - 40, size - 40)
         painter.drawEllipse(inner_rect)
 
-        # Text
-        painter.setPen(QColor(255, 255, 255))
-        painter.setFont(QFont("Microsoft YaHei UI", 14, QFont.Weight.Bold))
+        # Text (larger and with a shadow for readability at small tray sizes)
         text = f"{int(value)}"
+        font = QFont("Microsoft YaHei UI", 36, QFont.Weight.Bold)
+        painter.setFont(font)
         text_rect = painter.boundingRect(pixmap.rect(), Qt.AlignmentFlag.AlignCenter, text)
+
+        painter.setPen(QColor(0, 0, 0, 160))
+        shadow_rect = text_rect.translated(2, 2)
+        painter.drawText(shadow_rect, Qt.AlignmentFlag.AlignCenter, text)
+
+        painter.setPen(QColor(255, 255, 255))
         painter.drawText(text_rect, Qt.AlignmentFlag.AlignCenter, text)
 
         painter.end()
         return QIcon(pixmap)
+
+    def _toggle_compact_mode(self):
+        self.compact_mode = not self.compact_mode
+        self.compact_btn.setChecked(self.compact_mode)
+
+        if self.compact_mode:
+            self.body_stack.setCurrentIndex(1)
+            self.main_layout.setContentsMargins(4, 4, 4, 4)
+            self.container.layout().setContentsMargins(8, 8, 8, 8)
+            self.setFixedSize(120, 150)
+        else:
+            self.body_stack.setCurrentIndex(0)
+            self.main_layout.setContentsMargins(8, 8, 8, 8)
+            self.container.layout().setContentsMargins(16, 16, 16, 16)
+            self.setFixedSize(220, 250)
+
+        self._update_compact_icon()
+
+    def _update_compact_icon(self):
+        if not self.compact_mode:
+            return
+        icon = self._create_tray_icon(self._last_cpu, size=100)
+        self.compact_label.setPixmap(icon.pixmap(100, 100))
 
     def _on_tray_activated(self, reason):
         if reason == QSystemTrayIcon.ActivationReason.Trigger:
@@ -212,6 +300,7 @@ class SystemMonitorWidget(QWidget):
 
     def _update_stats(self):
         cpu = psutil.cpu_percent(interval=None)
+        self._last_cpu = cpu
         mem = psutil.virtual_memory()
         disk = psutil.disk_usage(self.disk_path)
 
@@ -221,6 +310,7 @@ class SystemMonitorWidget(QWidget):
             self._bar_style(cpu, "#4fc3f7", "#ff7043")
         )
         self.tray_icon.setIcon(self._create_tray_icon(cpu))
+        self._update_compact_icon()
         self.tray_icon.setToolTip(
             f"CPU: {cpu:.1f}%\n内存: {mem.percent:.1f}%\n磁盘: {disk.percent:.1f}%"
         )
