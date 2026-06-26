@@ -196,7 +196,7 @@ class SystemMonitorWidget(QWidget):
 
     def _setup_tray(self):
         self.tray_icon = QSystemTrayIcon(self)
-        self.tray_icon.setIcon(self._create_tray_icon(0))
+        self.tray_icon.setIcon(self._create_tray_icon(0, 0, 0))
 
         tray_menu = QMenu()
         show_action = QAction("显示", self)
@@ -216,8 +216,15 @@ class SystemMonitorWidget(QWidget):
         self.tray_icon.setToolTip("系统监控小部件")
         self.tray_icon.show()
 
-    def _create_tray_icon(self, value: float, size: int = 128) -> QIcon:
-
+    def _create_rings_pixmap(
+        self,
+        cpu: float,
+        mem: float,
+        disk: float,
+        size: int,
+        pen_width: int,
+        insets: list[int],
+    ) -> QPixmap:
         pixmap = QPixmap(size, size)
         pixmap.fill(QColor(0, 0, 0, 0))
 
@@ -229,35 +236,33 @@ class SystemMonitorWidget(QWidget):
         painter.setBrush(QColor(50, 50, 50, 220))
         painter.drawEllipse(4, 4, size - 8, size - 8)
 
-        # Progress arc
-        rect = QRectF(8, 8, size - 16, size - 16)
+        # Three concentric usage rings: CPU (outer), memory (middle), disk (inner)
+        rings = [
+            (cpu, QColor(79, 195, 247), QColor(255, 112, 67)),
+            (mem, QColor(102, 187, 106), QColor(255, 112, 67)),
+            (disk, QColor(255, 167, 38), QColor(239, 83, 80)),
+        ]
         start_angle = 90 * 16
-        span_angle = -int(value * 360 * 16 / 100)
 
-        painter.setPen(Qt.PenStyle.NoPen)
-        color = QColor(255, 112, 67) if value > 80 else QColor(79, 195, 247)
-        painter.setBrush(color)
-        painter.drawPie(rect, start_angle, span_angle)
-
-        # Inner circle to make it a ring
-        painter.setBrush(QColor(30, 30, 30, 220))
-        inner_rect = QRectF(20, 20, size - 40, size - 40)
-        painter.drawEllipse(inner_rect)
-
-        # Text (larger and with a shadow for readability at small tray sizes)
-        text = f"{int(value)}"
-        font = QFont("Microsoft YaHei UI", 36, QFont.Weight.Bold)
-        painter.setFont(font)
-        text_rect = painter.boundingRect(pixmap.rect(), Qt.AlignmentFlag.AlignCenter, text)
-
-        painter.setPen(QColor(0, 0, 0, 160))
-        shadow_rect = text_rect.translated(2, 2)
-        painter.drawText(shadow_rect, Qt.AlignmentFlag.AlignCenter, text)
-
-        painter.setPen(QColor(255, 255, 255))
-        painter.drawText(text_rect, Qt.AlignmentFlag.AlignCenter, text)
+        for (value, low_color, high_color), inset in zip(rings, insets):
+            color = high_color if value > 80 else low_color
+            pen = QPen(color)
+            pen.setWidth(pen_width)
+            pen.setCapStyle(Qt.PenCapStyle.RoundCap)
+            painter.setPen(pen)
+            rect = QRectF(inset, inset, size - 2 * inset, size - 2 * inset)
+            span_angle = -int(value * 360 * 16 / 100)
+            painter.drawArc(rect, start_angle, span_angle)
 
         painter.end()
+        return pixmap
+
+    def _create_tray_icon(
+        self, cpu: float, mem: float = 0.0, disk: float = 0.0
+    ) -> QIcon:
+        pixmap = self._create_rings_pixmap(
+            cpu, mem, disk, size=128, pen_width=14, insets=[12, 28, 44]
+        )
         return QIcon(pixmap)
 
     def _toggle_compact_mode(self):
@@ -277,39 +282,12 @@ class SystemMonitorWidget(QWidget):
 
         self._update_compact_icon()
 
-    def _create_compact_icon(self, cpu: float, mem: float, disk: float, size: int = 100) -> QPixmap:
-        pixmap = QPixmap(size, size)
-        pixmap.fill(QColor(0, 0, 0, 0))
-
-        painter = QPainter(pixmap)
-        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-
-        # Background circle
-        painter.setPen(Qt.PenStyle.NoPen)
-        painter.setBrush(QColor(50, 50, 50, 220))
-        painter.drawEllipse(2, 2, size - 4, size - 4)
-
-        # Three concentric usage rings: CPU (outer), memory (middle), disk (inner)
-        rings = [
-            (cpu, QColor(79, 195, 247), QColor(255, 112, 67), 6),
-            (mem, QColor(102, 187, 106), QColor(255, 112, 67), 18),
-            (disk, QColor(255, 167, 38), QColor(239, 83, 80), 30),
-        ]
-        pen_width = 10
-        start_angle = 90 * 16
-
-        for value, low_color, high_color, inset in rings:
-            color = high_color if value > 80 else low_color
-            pen = QPen(color)
-            pen.setWidth(pen_width)
-            pen.setCapStyle(Qt.PenCapStyle.RoundCap)
-            painter.setPen(pen)
-            rect = QRectF(inset, inset, size - 2 * inset, size - 2 * inset)
-            span_angle = -int(value * 360 * 16 / 100)
-            painter.drawArc(rect, start_angle, span_angle)
-
-        painter.end()
-        return pixmap
+    def _create_compact_icon(
+        self, cpu: float, mem: float, disk: float, size: int = 100
+    ) -> QPixmap:
+        return self._create_rings_pixmap(
+            cpu, mem, disk, size=size, pen_width=10, insets=[6, 18, 30]
+        )
 
     def _update_compact_icon(self):
         if not self.compact_mode:
@@ -349,7 +327,7 @@ class SystemMonitorWidget(QWidget):
         self.cpu_bar.setStyleSheet(
             self._bar_style(cpu, "#4fc3f7", "#ff7043")
         )
-        self.tray_icon.setIcon(self._create_tray_icon(cpu))
+        self.tray_icon.setIcon(self._create_tray_icon(cpu, mem.percent, disk.percent))
         self._update_compact_icon()
         self.tray_icon.setToolTip(
             f"CPU: {cpu:.1f}%\n内存: {mem.percent:.1f}%\n磁盘: {disk.percent:.1f}%"
