@@ -272,9 +272,9 @@ class SystemMonitorWidget(QWidget):
         if self.compact_mode:
             self.body_stack.setCurrentIndex(1)
             self.title_label.hide()
-            self.main_layout.setContentsMargins(4, 4, 4, 4)
-            self.container.layout().setContentsMargins(6, 6, 6, 6)
-            self.setFixedSize(120, 130)
+            self.main_layout.setContentsMargins(2, 2, 2, 2)
+            self.container.layout().setContentsMargins(4, 4, 4, 4)
+            self.setFixedSize(100, 118)
         else:
             self.body_stack.setCurrentIndex(0)
             self.title_label.show()
@@ -285,17 +285,19 @@ class SystemMonitorWidget(QWidget):
         self._update_compact_icon()
 
     def _create_compact_icon(
-        self, cpu: float, mem: float, disk: float, size: int = 100
+        self, cpu: float, mem: float, disk: float, size: int = 80
     ) -> QPixmap:
+        pen_width = max(6, size // 10)
+        insets = [int(size * 0.06), int(size * 0.18), int(size * 0.30)]
         return self._create_rings_pixmap(
-            cpu, mem, disk, size=size, pen_width=10, insets=[6, 18, 30]
+            cpu, mem, disk, size=size, pen_width=pen_width, insets=insets
         )
 
     def _update_compact_icon(self):
         if not self.compact_mode:
             return
         pixmap = self._create_compact_icon(
-            self._last_cpu, self._last_mem, self._last_disk, size=100
+            self._last_cpu, self._last_mem, self._last_disk, size=80
         )
         self.compact_label.setPixmap(pixmap)
 
