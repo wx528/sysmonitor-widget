@@ -5,7 +5,7 @@ import time
 
 import psutil
 from PySide6.QtCore import QTimer, Qt, QPoint, QRectF
-from PySide6.QtGui import QAction, QFont, QIcon, QMouseEvent, QPainter, QColor, QPixmap
+from PySide6.QtGui import QAction, QFont, QIcon, QMouseEvent, QPainter, QPen, QColor, QPixmap
 from PySide6.QtWidgets import (
     QApplication,
     QHBoxLayout,
