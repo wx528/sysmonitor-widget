@@ -109,9 +109,9 @@ class SystemMonitorWidget(QWidget):
         title_layout = QHBoxLayout()
         title_layout.setSpacing(6)
 
-        title = QLabel("系统监控")
-        title.setObjectName("title")
-        title_layout.addWidget(title)
+        self.title_label = QLabel("系统监控")
+        self.title_label.setObjectName("title")
+        title_layout.addWidget(self.title_label)
         title_layout.addStretch()
 
         self.compact_btn = QPushButton("◱")
@@ -271,11 +271,13 @@ class SystemMonitorWidget(QWidget):
 
         if self.compact_mode:
             self.body_stack.setCurrentIndex(1)
+            self.title_label.hide()
             self.main_layout.setContentsMargins(4, 4, 4, 4)
-            self.container.layout().setContentsMargins(8, 8, 8, 8)
-            self.setFixedSize(120, 150)
+            self.container.layout().setContentsMargins(6, 6, 6, 6)
+            self.setFixedSize(120, 130)
         else:
             self.body_stack.setCurrentIndex(0)
+            self.title_label.show()
             self.main_layout.setContentsMargins(8, 8, 8, 8)
             self.container.layout().setContentsMargins(16, 16, 16, 16)
             self.setFixedSize(220, 250)
