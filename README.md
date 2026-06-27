@@ -1,5 +1,14 @@
 # 系统监控桌面小部件
 
+<p align="center">
+  <img src="https://img.shields.io/badge/Python-3.11%2B-3776AB?style=flat&logo=python&logoColor=white" alt="Python">
+  <img src="https://img.shields.io/badge/GUI-PySide6-41CD52?style=flat" alt="PySide6">
+  <img src="https://img.shields.io/badge/Platform-Windows%2010%2F11-0078D6?style=flat&logo=windows&logoColor=white" alt="Windows">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow?style=flat" alt="License"></a>
+  <a href="https://github.com/wx528/sysmonitor-widget/actions/workflows/build.yml"><img src="https://github.com/wx528/sysmonitor-widget/actions/workflows/build.yml/badge.svg" alt="CI"></a>
+  <a href="https://github.com/wx528/sysmonitor-widget/releases/latest"><img src="https://img.shields.io/github/v/release/wx528/sysmonitor-widget?style=flat&logo=github" alt="Release"></a>
+</p>
+
 一个基于 PySide6 + psutil 的 Windows 桌面系统监控小部件，置顶显示在桌面上，实时展示 CPU、内存、磁盘和网络运行状态。
 
 ![demo](demo.gif)
