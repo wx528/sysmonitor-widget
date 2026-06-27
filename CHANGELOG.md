@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.2.4] - 2026-06-27
+
+### Added
+
+- 增加 GitHub Actions CI 工作流，推送 `v*` 标签时自动打包并发布 exe 到 Releases。
+
+### Changed
+
+- 运行环境要求从 Python 3.14+ 调整为 Python 3.11+，以便在 CI 中使用更稳定的 Python 版本。
+
 ## [0.2.3] - 2026-06-26
 
 ### Changed

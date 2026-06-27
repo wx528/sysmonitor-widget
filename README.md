@@ -16,7 +16,7 @@
 ## 运行环境
 
 - Windows
-- Python 3.14+
+- Python 3.11+
 - 使用 [uv](https://github.com/astral-sh/uv) 管理依赖
 
 ## 开发运行
@@ -97,4 +97,21 @@ uv run scripts/remove_autostart.py
 ```
 
 这会删除注册表启动项，并删除 `%APPDATA%\SysMonitor\` 下的程序文件。
+
+## 自动发布
+
+项目已配置 GitHub Actions 工作流（`.github/workflows/build.yml`）。推送 `v*` 标签时，CI 会自动：
+
+1. 在 Windows 环境下安装依赖
+2. 使用 PyInstaller 打包 `sysmonitor-widget.exe`
+3. 创建 GitHub Release 并上传 exe 附件
+
+示例：
+
+```bash
+git tag v0.3.0
+git push origin v0.3.0
+```
+
+推送后，可在 [Releases](https://github.com/wx528/sysmonitor-widget/releases) 页面下载自动打包的 exe。
 
